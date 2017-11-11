@@ -15,6 +15,11 @@ def tanh_derivative(values):
     return 1. - values ** 2
 
 
+def softmax(h):
+    e_h = np.exp(h - np.max(h))
+    return e_h / e_h.sum(axis=0)
+
+
 class LSTMState:
     def __init__(self, hidden_size, input_size):
         self.z = np.zeros((hidden_size, 1))
@@ -47,7 +52,7 @@ class Deltas:
 
 
 class BasicLSTM:
-    def __init__(self,hidden_size, input_size, lr):
+    def __init__(self,hidden_size, input_size):
         self.hidden_size = hidden_size
         self.input_size = input_size
         ### Matricies
@@ -81,7 +86,6 @@ class BasicLSTM:
         ##
         self.C = np.zeros((hidden_size, 1))
         self.States = []
-        self.lr = lr
 
     def operate(self, old_h, x):
         cell = LSTMState(self.hidden_size, self.input_size)
@@ -112,6 +116,23 @@ class BasicLSTM:
         self.b_i = self.b_i + lr * self.delta_b_i
         self.b_f = self.b_f + lr * self.delta_b_f
         self.b_o = self.b_o + lr * self.delta_b_o
+        ###############################################
+        self.delta_W_z = np.zeros((self.hidden_size, self.input_size))
+        self.delta_W_i = np.zeros((self.hidden_size, self.input_size))
+        self.delta_W_f = np.zeros((self.hidden_size, self.input_size))
+        self.delta_W_o = np.zeros((self.hidden_size, self.input_size))
+        self.delta_R_z = np.zeros((self.hidden_size, self.hidden_size))
+        self.delta_R_i = np.zeros((self.hidden_size, self.hidden_size))
+        self.delta_R_f = np.zeros((self.hidden_size, self.hidden_size))
+        self.delta_R_o = np.zeros((self.hidden_size, self.hidden_size))
+        self.delta_b_z = np.zeros((self.hidden_size, 1))
+        self.delta_b_i = np.zeros((self.hidden_size, 1))
+        self.delta_b_f = np.zeros((self.hidden_size, 1))
+        self.delta_b_o = np.zeros((self.hidden_size, 1))
+        ##
+        self.C = np.zeros((self.hidden_size, 1))
+        self.States = []
+
 
     def forward(self, input_stream):
         size = input_stream.shape
@@ -124,6 +145,7 @@ class BasicLSTM:
             cell = self.operate(h, x)
             self.States.append(cell)
             h = cell.h
+        return h
 
     def backward(self, delta_h):
         n_step = len(self.States)
@@ -156,6 +178,43 @@ class BasicLSTM:
             ###########
             next_delta = delta
             next_cell = cell
+
+    def predict(self, input_stream):
+            estimate_y = softmax(self.forward(input_stream))
+            return estimate_y
+
+    def error_function(self, prediction, label):
+            error = np.multiply(label,np.log(prediction))
+            return error.sum(axis=0)
+
+    def derivative_h(self,prediction, label):
+            return prediction -label
+
+    def train(self, data, labels, iteration_number):
+        data_len = len(data)
+        label_len = len(labels)
+        total_loss = 0
+        learning_rate = 0.001
+        counter = 0.0;
+        if label_len != data_len:
+            print("ERROR : LABEL SIZE DOES NOT HOLD")
+            exit(1)
+        for i in range(iteration_number):
+            choose = np.random.randint(0, data_len-1, 1)
+            label = labels[choose]
+            example = data[i]
+            prediction = self.predict(example)
+            counter += 1.0
+            delta_h = self.derivative_h(prediction, label)
+            self.backward(delta_h)
+            total_loss = total_loss + self.error_function(prediction, label)
+            self.update(learning_rate)
+            if i % 100 == 0:
+                print("Iteration Number:", iteration_number)
+                print("Average Error:", total_loss/counter)
+
+
+
 
 
 
