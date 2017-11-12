@@ -1,2 +1,3 @@
 # LSTM
-Implement simple LSTM and test a language model
+## Implement simple LSTM 
+## Time Series Task 
