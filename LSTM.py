@@ -1,9 +1,11 @@
 import random
 import numpy as np
 import math
-
+import tensorflow as tf
+import pickle
 
 def sigmoid(x):
+    x = np.clip( x, -500, 500 )
     return 1. / (1 + np.exp(-x))
 
 
@@ -56,20 +58,23 @@ class BasicLSTM:
         self.hidden_size = hidden_size
         self.input_size = input_size
         ### Matricies
-        self.W_z = np.random.randn(hidden_size, input_size)
-        self.W_i = np.random.randn(hidden_size, input_size)
-        self.W_f = np.random.randn(hidden_size, input_size)
-        self.W_o = np.random.randn(hidden_size, input_size)
+        self.W_z = 2*np.random.rand(hidden_size, input_size)-1
+        self.W_i = 2*np.random.rand(hidden_size, input_size)-1
+        self.W_f = 2*np.random.rand(hidden_size, input_size)-1
+        self.W_o = 2*np.random.rand(hidden_size, input_size)-1
         ##
-        self.R_z = np.random.randn(hidden_size, hidden_size)
-        self.R_i = np.random.randn(hidden_size, hidden_size)
-        self.R_f = np.random.randn(hidden_size, hidden_size)
-        self.R_o = np.random.randn(hidden_size, hidden_size)
+        self.R_z = 2*np.random.rand(hidden_size, hidden_size)-1
+        self.R_i = 2*np.random.rand(hidden_size, hidden_size)-1
+        self.R_f = 2*np.random.rand(hidden_size, hidden_size)-1
+        self.R_o = 2*np.random.rand(hidden_size, hidden_size)-1
         ##
-        self.b_z = np.random.randn(hidden_size, 1)
-        self.b_i = np.random.randn(hidden_size, 1)
-        self.b_f = np.random.randn(hidden_size, 1)
-        self.b_o = np.random.randn(hidden_size, 1)
+        self.b_z = 2*np.random.rand(hidden_size, 1)-1
+        self.b_i = 2*np.random.rand(hidden_size, 1)-1
+        self.b_f = 2*np.random.rand(hidden_size, 1)-1
+        self.b_o = 2*np.random.rand(hidden_size, 1)-1
+        ##
+        self.W_y = np.random.randn(1, hidden_size)
+        self.b_y = 0.0;
         ##
         self.delta_W_z = np.zeros((hidden_size, input_size))
         self.delta_W_i = np.zeros((hidden_size, input_size))
@@ -83,6 +88,9 @@ class BasicLSTM:
         self.delta_b_i = np.zeros((hidden_size, 1))
         self.delta_b_f = np.zeros((hidden_size, 1))
         self.delta_b_o = np.zeros((hidden_size, 1))
+        ##
+        self.delta_W_y = np.zeros((1,hidden_size))
+        self.delta_b_y = 0.0;
         ##
         self.C = np.zeros((hidden_size, 1))
         self.States = []
@@ -102,20 +110,24 @@ class BasicLSTM:
         return cell
 
     def update(self, lr):
+        lr = lr * -1;
         self.W_z = self.W_z + lr * self.delta_W_z
         self.W_i = self.W_i + lr * self.delta_W_i
         self.W_f = self.W_f + lr * self.delta_W_f
         self.W_o = self.W_o + lr * self.delta_W_o
-        ##############################################
+        #########################################
         self.R_z = self.R_z + lr * self.delta_R_z
         self.R_i = self.R_i + lr * self.delta_R_i
         self.R_f = self.R_f + lr * self.delta_R_f
         self.R_o = self.R_o + lr * self.delta_R_o
-        ##############################################
+        ##########################################
         self.b_z = self.b_z + lr * self.delta_b_z
         self.b_i = self.b_i + lr * self.delta_b_i
         self.b_f = self.b_f + lr * self.delta_b_f
         self.b_o = self.b_o + lr * self.delta_b_o
+        #########################################
+        self.b_y += self.delta_b_y
+        self.W_y += self.delta_W_y
         ###############################################
         self.delta_W_z = np.zeros((self.hidden_size, self.input_size))
         self.delta_W_i = np.zeros((self.hidden_size, self.input_size))
@@ -129,6 +141,10 @@ class BasicLSTM:
         self.delta_b_i = np.zeros((self.hidden_size, 1))
         self.delta_b_f = np.zeros((self.hidden_size, 1))
         self.delta_b_o = np.zeros((self.hidden_size, 1))
+        self.delta_b_y *= 0
+        self.delta_W_y *= 0
+        ###############
+
         ##
         self.C = np.zeros((self.hidden_size, 1))
         self.States = []
@@ -180,40 +196,46 @@ class BasicLSTM:
             next_cell = cell
 
     def predict(self, input_stream):
+            return np.dot(self.W_y,self.forward(input_stream)+self.b_y)
             estimate_y = softmax(self.forward(input_stream))
             return estimate_y
 
     def error_function(self, prediction, label):
-            error = np.multiply(label,np.log(prediction))
+            error = prediction - label;
+            error = np.multiply(error, error)/2.0
             return error.sum(axis=0)
+            error = np.multiply(label, np.log(prediction))
 
     def derivative_h(self,prediction, label):
-            return prediction -label
+            return np.dot(self.W_y.T,(prediction - label))
 
     def train(self, data, labels, iteration_number):
         data_len = len(data)
         label_len = len(labels)
         total_loss = 0
-        learning_rate = 0.001
+        learning_rate = 0.1
         counter = 0.0;
+        i = 0;
+        meta_rate = 1.1
         if label_len != data_len:
             print("ERROR : LABEL SIZE DOES NOT HOLD")
             exit(1)
-        for i in range(iteration_number):
-            choose = np.random.randint(0, data_len-1, 1)
+        while(1):
+            i +=1;
+            choose = np.random.randint(0, data_len-1)
             label = labels[choose]
-            example = data[i]
+            example = data[choose]
             prediction = self.predict(example)
             counter += 1.0
             delta_h = self.derivative_h(prediction, label)
             self.backward(delta_h)
             total_loss = total_loss + self.error_function(prediction, label)
             self.update(learning_rate)
-            if i % 100 == 0:
-                print("Iteration Number:", iteration_number)
-                print("Average Error:", total_loss/counter)
-
-
+            if i % 1000 == 0:
+                print("Average Error:", total_loss/counter, "Learning Rate:", learning_rate)
+            learning_rate *= 0.99999
+            if total_loss/counter < 0.01:
+                break
 
 
 
