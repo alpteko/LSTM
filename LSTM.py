@@ -1,8 +1,5 @@
-import random
 import numpy as np
-import math
-import tensorflow as tf
-import pickle
+
 
 def sigmoid(x):
     x = np.clip( x, -500, 500 )

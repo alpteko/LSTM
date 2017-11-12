@@ -1,6 +1,5 @@
 import numpy as np
 import LSTM
-import pickle
 import pandas
 import matplotlib.pyplot as plt
 
