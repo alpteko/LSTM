@@ -71,7 +71,7 @@ class BasicLSTM:
         self.b_o = 2*np.random.rand(hidden_size, 1)-1
         ##
         self.W_y = np.random.randn(1, hidden_size)
-        self.b_y = 0.0;
+        self.b_y = 1;
         ##
         self.delta_W_z = np.zeros((hidden_size, input_size))
         self.delta_W_i = np.zeros((hidden_size, input_size))
@@ -217,8 +217,7 @@ class BasicLSTM:
         if label_len != data_len:
             print("ERROR : LABEL SIZE DOES NOT HOLD")
             exit(1)
-        while(1):
-            i +=1;
+        for i in range(iteration_number):
             choose = np.random.randint(0, data_len-1)
             label = labels[choose]
             example = data[choose]
@@ -230,9 +229,8 @@ class BasicLSTM:
             self.update(learning_rate)
             if i % 1000 == 0:
                 print("Average Error:", total_loss/counter, "Learning Rate:", learning_rate)
-            learning_rate *= 0.99999
-            if total_loss/counter < 0.01:
-                break
+            learning_rate *= 0.9999
+
 
 
 

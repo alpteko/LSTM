@@ -26,8 +26,10 @@ for i in range(100):
 hidden_size = 10;
 input_size = 1;
 #################
-lstm = LSTM.BasicLSTM(hidden_size, input_size)
-lstm.train(data_list, labels, 90000)
+#lstm = LSTM.BasicLSTM(hidden_size, input_size)
+file = open('LSTM_Trained.txt', 'rb')
+lstm = pickle.load(file)
+lstm.train(data_list, labels, 9000)
 test_labels = []
 test_data_list =[]
 mx = np.max(data[0,100:144]);
