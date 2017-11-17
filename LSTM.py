@@ -204,13 +204,13 @@ class BasicLSTM:
             error = np.multiply(label, np.log(prediction))
 
     def derivative_h(self,prediction, label):
-            return np.dot(self.W_y.T,(prediction - label))
+            return np.dot(self.W_y.T, (prediction - label))
 
     def train(self, data, labels, iteration_number):
         data_len = len(data)
         label_len = len(labels)
         total_loss = 0
-        learning_rate = 0.1
+        learning_rate = 1
         counter = 0.0;
         i = 0;
         meta_rate = 1.1
@@ -229,7 +229,7 @@ class BasicLSTM:
             self.update(learning_rate)
             if i % 1000 == 0:
                 print("Average Error:", total_loss/counter, "Learning Rate:", learning_rate)
-            learning_rate *= 0.9999
+            learning_rate *= 0.999999
 
 
 
